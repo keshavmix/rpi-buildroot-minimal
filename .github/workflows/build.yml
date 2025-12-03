@@ -1,0 +1,45 @@
+name: Build Buildroot Minimal OS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git ncurses-dev bison flex \
+            libssl-dev u-boot-tools qemu-user-static dosfstools \
+            libncurses5-dev libncursesw5-dev python3 python3-pip rsync \
+            wget bc kmod
+
+      - name: Copy defconfig into Buildroot
+        run: |
+          # copy our defconfig into the Buildroot configs dir
+          cp configs/rpi4_minimal_defconfig buildroot/configs/
+
+      - name: Select defconfig
+        run: |
+          cd buildroot
+          make rpi4_minimal_defconfig
+
+      - name: Build (may take 20-90 minutes depending on runner load)
+        run: |
+          cd buildroot
+          make -j$(nproc)
+
+      - name: Upload images
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpi-minimal-os
+          path: buildroot/output/images/
